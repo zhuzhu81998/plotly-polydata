@@ -5,45 +5,19 @@ var Lib = require('../../lib');
 var getTraceColor = require('../scatter/get_trace_color');
 
 function hoverPoints(pointData, xval, yval, hovermode) {
-    var cd = pointData.cd;
-    var stash = cd[0].t;
-    var trace = cd[0].trace;
+    var trace = pointData.cd[0].trace;
     var xa = pointData.xa;
     var ya = pointData.ya;
-    var x = stash.x;
-    var y = stash.y;
     var xpx = xa.c2p(xval);
     var ypx = ya.c2p(yval);
     var maxDistance = pointData.distance;
-    var ids;
-
-    // FIXME: make sure this is a proper way to calc search radius
-    if(stash.tree) {
-        var xl = xa.p2c(xpx - maxDistance);
-        var xr = xa.p2c(xpx + maxDistance);
-        var yl = ya.p2c(ypx - maxDistance);
-        var yr = ya.p2c(ypx + maxDistance);
-
-        if(hovermode === 'x') {
-            ids = stash.tree.range(
-                Math.min(xl, xr), Math.min(ya._rl[0], ya._rl[1]),
-                Math.max(xl, xr), Math.max(ya._rl[0], ya._rl[1])
-            );
-        } else {
-            ids = stash.tree.range(
-                Math.min(xl, xr), Math.min(yl, yr),
-                Math.max(xl, xr), Math.max(yl, yr)
-            );
-        }
-    } else {
-        ids = stash.ids;
-    }
+    const ids = [...Array(trace.x.length).keys()]; // use naive linear checking for the closest point
 
     // pick the id closest to the point
     // note that point possibly may not be found
-    var k, closestId, ptx, pty, i, dx, dy, dist, dxy;
+    var k, closestId, ptx, pty, i, dx, dy, distSquared, dxy;
 
-    var minDist = maxDistance;
+    var minDistSquared = maxDistance * maxDistance;
     if(hovermode === 'x') {
         var xPeriod = !!trace.xperiodalignment;
         var yPeriod = !!trace.yperiodalignment;
@@ -90,16 +64,16 @@ function hoverPoints(pointData, xval, yval, hovermode) {
             dx = xa.c2p(ptx) - xpx;
             dy = ya.c2p(pty) - ypx;
 
-            dist = Math.sqrt(dx * dx + dy * dy);
-            if(dist < minDist) {
-                minDist = dxy = dist;
+            distSquared = dx * dx + dy * dy;
+            if(distSquared < minDistSquared) {
+                minDistSquared = dxy = distSquared;
                 closestId = k;
             }
         }
     }
 
     pointData.index = closestId;
-    pointData.distance = minDist;
+    pointData.distance = Math.sqrt(minDistSquared);
     pointData.dxy = dxy;
 
     if(closestId === undefined) return [pointData];
